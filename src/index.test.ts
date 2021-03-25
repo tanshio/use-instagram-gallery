@@ -1,29 +1,34 @@
-import { useMyHook } from './'
-import { renderHook, act } from "@testing-library/react-hooks";
+import { useInstagramGallery } from './'
+import { HookResult, renderHook, act } from '@testing-library/react-hooks'
+import fetchMock from 'jest-fetch-mock'
+import { expected, html } from './instagram.mock'
 
-// mock timer using jest
-jest.useFakeTimers();
+fetchMock.enableMocks()
 
 describe('useMyHook', () => {
-  it('updates every second', () => {
-    const { result } = renderHook(() => useMyHook());
+  let result: HookResult<ReturnType<typeof useInstagramGallery>>
+  beforeEach(() => {
+    result = renderHook(() => useInstagramGallery({ username: 'tanshio' }))
+      .result
+  })
 
-    expect(result.current).toBe(0);
+  it('Successful fetch', async () => {
+    fetchMock.mockResponse(html)
+    await act(async () => {
+      await result.current.init()
+      const { url, alt, src } = result.current.gallery[0]
+      expect({ alt, url, src }).toStrictEqual(expected)
+    })
+  })
 
-    // Fast-forward 1sec
-    act(() => {
-      jest.advanceTimersByTime(1000);
-    });
-
-    // Check after total 1 sec
-    expect(result.current).toBe(1);
-
-    // Fast-forward 1 more sec
-    act(() => {
-      jest.advanceTimersByTime(1000);
-    });
-
-    // Check after total 2 sec
-    expect(result.current).toBe(2);
+  it('failed to fetch', async () => {
+    fetchMock.mockResponse(`<html></html>`)
+    await act(async () => {
+      try {
+        await result.current.init()
+      } catch (e) {}
+      const status = result.current.status
+      expect(status).toStrictEqual('FAILED')
+    })
   })
 })
